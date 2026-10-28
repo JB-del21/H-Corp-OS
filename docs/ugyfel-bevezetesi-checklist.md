@@ -21,13 +21,14 @@ Egy ügyfél = egy külön példány: saját Slack-app, saját OpenAI Project é
 - [ ] Modellverzió ellenőrizve (lásd README: a jelenlegi snapshot 2027-01-14-én kivezetésre kerül).
 
 ## 3. Slack-app (a workspace adminjával)
-A kód jelenleg csak a csatornás @megemlítésre (`app_mention`) válaszol, privát üzenetre nem.
+A bot két módon érhető el: csatornában @megemlítéssel (`app_mention`) és privát üzenetben (`message.im`). A kód minden más üzenetet figyelmen kívül hagy.
 - [ ] Új app létrehozása a Slack API felületén (api.slack.com/apps) az ügyfél workspace-ében.
-- [ ] Bot Token Scopes (OAuth & Permissions): `app_mentions:read` és `chat:write`. (A kód viselkedéséből következő minimum, ellenőrizd a Slack aktuális dokumentációjában.)
+- [ ] Bot Token Scopes (OAuth & Permissions): `app_mentions:read`, `chat:write`, privát üzenetekhez `im:history`. (A kód viselkedéséből következő minimum, ellenőrizd a Slack aktuális dokumentációjában.)
+- [ ] Privát üzenethez az App Home → Messages Tab bekapcsolása, hogy a felhasználók írhassanak a botnak.
 - [ ] Az app telepítése a workspace-be. A kapott `xoxb-` kezdetű **Bot User OAuth Token** lesz a `SLACK_BOT_TOKEN`.
 - [ ] A **Signing Secret** (Basic Information → App Credentials) lesz a `SLACK_SIGNING_SECRET`.
 - [ ] Event Subscriptions bekapcsolása, Request URL: `https://<ügyfél-domain>/slack/events`. A Slack ekkor `challenge` kérést küld, ehhez a szervernek már futnia kell (lásd 4. pont).
-- [ ] Feliratkozás a bot eseményre: `app_mention`. Mentés után az app újratelepítése, ha a Slack kéri.
+- [ ] Feliratkozás a bot eseményekre: `app_mention` és `message.im`. Mentés után az app újratelepítése, ha a Slack kéri.
 - [ ] A bot meghívása a használni kívánt csatornákba (`/invite @botnév`), különben nem látja a megemlítéseket.
 
 ## 4. Szerver
@@ -39,7 +40,7 @@ A kód jelenleg csak a csatornás @megemlítésre (`app_mention`) válaszol, pri
 
 ## 5. Átvételi tesztek
 - [ ] A repo CI-ban az ügyfél SOP-jaira írt 50+ magyar tesztkérdés zöld (folyamat-kérdések, hiányzó SOP, béradat, jelszó, jailbreak).
-- [ ] Élő próba a Slackben: 10 valódi kérdés az ügyfél munkatársaitól, a válaszok SOP-kóddal jönnek, hiányzó SOP-nál a fix fallback-mondat.
+- [ ] Élő próba a Slackben, csatornában és privát üzenetben is: 10 valódi kérdés az ügyfél munkatársaitól, a válaszok SOP-kóddal jönnek, hiányzó SOP-nál a fix fallback-mondat.
 - [ ] Ellenőrizve: a bot nem ad ki bért, jelszót, személyes adatot, és nem enged szabálymódosítást.
 - [ ] Az ügyfél írásban átvette az eredményt.
 

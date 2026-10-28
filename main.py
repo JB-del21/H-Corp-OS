@@ -58,6 +58,26 @@ def clean_mention(text: str) -> str:
     return MENTION_RE.sub("", text).strip()
 
 
+def extract_question(event: dict) -> str | None:
+    """A kérdés szövege, ha az eseményre válaszolni kell; különben None.
+
+    - csatornában: @megemlítés (app_mention)
+    - privát üzenetben: message esemény im csatornatípussal (message.im)
+    A bot saját és más botok üzeneteit, valamint a módosított/törölt/speciális
+    (subtype-os) üzeneteket figyelmen kívül hagyjuk, hogy ne legyen önmagára válaszoló hurok.
+    """
+    if event.get("bot_id") or event.get("subtype"):
+        return None
+    etype = event.get("type")
+    if etype == "app_mention":
+        question = clean_mention(event.get("text", ""))
+    elif etype == "message" and event.get("channel_type") == "im":
+        question = event.get("text", "").strip()
+    else:
+        return None
+    return question or None
+
+
 def answer_in_slack(channel: str, question: str) -> None:
     started = time.time()
     failed = False
@@ -102,8 +122,7 @@ async def slack_events(request: Request, background: BackgroundTasks):
     if already_seen(data.get("event_id")):
         return {"status": "ok"}
     event = data.get("event", {})
-    if event.get("type") == "app_mention" and not event.get("bot_id"):
-        question = clean_mention(event.get("text", ""))
-        if question:
-            background.add_task(answer_in_slack, event.get("channel"), question)
+    question = extract_question(event)
+    if question:
+        background.add_task(answer_in_slack, event.get("channel"), question)
     return {"status": "ok"}

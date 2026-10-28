@@ -104,3 +104,38 @@ def test_slack_retry_header_is_ignored(monkeypatch):
     r = client.post("/slack/events", content=body, headers=headers)
     assert r.status_code == 200
     assert calls == []
+
+
+def _post_event(event: dict, event_id: str):
+    body = json.dumps({"event_id": event_id, "event": event}).encode()
+    return client.post("/slack/events", content=body, headers=signed_headers(body))
+
+
+def test_direct_message_is_answered(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    r = _post_event({"type": "message", "channel_type": "im", "channel": "D1", "text": "Mi a teendő?"}, "Ev-DM-1")
+    assert r.status_code == 200
+    assert calls == [("D1", "Mi a teendő?")]
+
+
+def test_dm_with_subtype_or_bot_is_ignored(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    _post_event({"type": "message", "subtype": "message_changed", "channel_type": "im", "channel": "D1", "text": "x"}, "Ev-DM-2")
+    _post_event({"type": "message", "bot_id": "B1", "channel_type": "im", "channel": "D1", "text": "x"}, "Ev-DM-3")
+    assert calls == []
+
+
+def test_plain_channel_message_is_ignored(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    _post_event({"type": "message", "channel_type": "channel", "channel": "C1", "text": "hello"}, "Ev-CH-1")
+    assert calls == []
+
+
+def test_empty_dm_is_ignored(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    _post_event({"type": "message", "channel_type": "im", "channel": "D1", "text": "   "}, "Ev-DM-4")
+    assert calls == []
