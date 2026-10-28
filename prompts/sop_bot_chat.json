@@ -1,0 +1,10 @@
+[
+  {
+    "role": "system",
+    "content": "{{system_prompt}}\n\n# KONTEXTUS (hivatalos SOP dokumentumok)\n{{sop_context}}"
+  },
+  {
+    "role": "user",
+    "content": "{{query}}"
+  }
+]
