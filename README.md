@@ -2,7 +2,7 @@
 
 Teszt nélkül nincs bizalom. Pipeline nélkül nincs rendszer.
 
-Belső SOP-bot (Slack), amelyhez automatizált biztonsági és regressziós tesztelés tartozik. A vezetői háttér: [docs/vezetoi-kezikonyv.md](docs/vezetoi-kezikonyv.md).
+Belső SOP-bot (Slack), amelyhez automatizált biztonsági és regressziós tesztelés tartozik. A vezetői háttér: [docs/vezetoi-kezikonyv.md](docs/vezetoi-kezikonyv.md). Új ügyfél bevezetése: [docs/ugyfel-bevezetesi-checklist.md](docs/ugyfel-bevezetesi-checklist.md).
 
 ## Szerkezet
 
