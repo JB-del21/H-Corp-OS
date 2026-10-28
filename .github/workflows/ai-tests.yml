@@ -24,8 +24,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-      - run: pip install -r requirements.txt
+      - run: pip install -r requirements-dev.txt
       - run: pytest tests/test_gateway.py -v --tb=short
+
+  docker-build:
+    name: Docker build ellenőrzés
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t h-corp-sop-bot .
 
   ai-safety-and-regression:
     name: Promptfoo + Pytest Safety Gate (valódi modellel)
@@ -53,7 +60,7 @@ jobs:
 
       - name: Python függőségek
         if: ${{ env.OPENAI_API_KEY != '' }}
-        run: pip install -r requirements.txt
+        run: pip install -r requirements-dev.txt
 
       - name: Promptfoo kiértékelés (deklaratív)
         if: ${{ env.OPENAI_API_KEY != '' }}

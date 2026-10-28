@@ -7,7 +7,11 @@ from openai import OpenAI
 ROOT = Path(__file__).parent
 PROMPT_PATH = ROOT / "prompts" / "system_prompt_sop_bot.txt"
 KNOWLEDGE_PATH = ROOT / "knowledge" / "sop_knowledge_base.md"
-MODEL = os.environ.get("SOP_BOT_MODEL", "gpt-4o")
+# Rögzített (dátumozott) modellverzió: az alias ("gpt-4o") észrevétlenül változhat.
+# FIGYELEM: az OpenAI bejelentése szerint ez a snapshot 2027-01-14-én kikerül az API-ból,
+# addig át kell állni az utódra (a promptfooconfig.yaml provider-ét is át kell írni),
+# és a teljes tesztkészletet le kell futtatni.
+MODEL = os.environ.get("SOP_BOT_MODEL", "gpt-4o-2024-08-06")
 
 FALLBACK = (
     "Sajnos erről a folyamatról nincs érvényes hivatalos SOP a tudásbázisunkban. "
@@ -27,7 +31,7 @@ def build_messages(user_prompt: str) -> list[dict]:
 
 
 def query_sop_bot(user_prompt: str) -> str:
-    client = OpenAI()  # OPENAI_API_KEY környezeti változóból
+    client = OpenAI(timeout=20, max_retries=2)  # OPENAI_API_KEY környezeti változóból
     response = client.chat.completions.create(
         model=MODEL,
         temperature=0.0,

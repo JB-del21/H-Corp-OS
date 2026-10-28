@@ -1,0 +1,12 @@
+.git
+.github
+.env
+tests
+docs
+__pycache__
+.pytest_cache
+*.md
+!knowledge/*.md
+requirements-dev.txt
+output.html
+results.json

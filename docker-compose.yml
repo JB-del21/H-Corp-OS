@@ -1,0 +1,7 @@
+services:
+  sop-bot:
+    build: .
+    env_file: .env          # lásd .env.example
+    ports:
+      - "8000:8000"
+    restart: unless-stopped

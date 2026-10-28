@@ -70,3 +70,37 @@ def test_bot_messages_are_ignored(monkeypatch):
     ).encode()
     client.post("/slack/events", content=body, headers=signed_headers(body))
     assert calls == []
+
+
+def test_healthz():
+    r = client.get("/healthz")
+    assert r.status_code == 200
+    assert r.json() == {"status": "ok"}
+
+
+def test_duplicate_event_id_is_processed_once(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    main._seen_events.clear()
+    body = json.dumps(
+        {
+            "event_id": "Ev-DUP-1",
+            "event": {"type": "app_mention", "channel": "C1", "text": "<@UBOT> Mi a teendő?"},
+        }
+    ).encode()
+    for _ in range(2):
+        r = client.post("/slack/events", content=body, headers=signed_headers(body))
+        assert r.status_code == 200
+    assert calls == [("C1", "Mi a teendő?")]
+
+
+def test_slack_retry_header_is_ignored(monkeypatch):
+    calls = []
+    monkeypatch.setattr(main, "answer_in_slack", lambda channel, q: calls.append((channel, q)))
+    body = json.dumps(
+        {"event_id": "Ev-RETRY-1", "event": {"type": "app_mention", "channel": "C1", "text": "<@UBOT> hello"}}
+    ).encode()
+    headers = signed_headers(body) | {"X-Slack-Retry-Num": "1"}
+    r = client.post("/slack/events", content=body, headers=headers)
+    assert r.status_code == 200
+    assert calls == []

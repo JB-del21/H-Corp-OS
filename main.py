@@ -1,5 +1,6 @@
 import hashlib
 import hmac
+import logging
 import os
 import re
 import time
@@ -9,6 +10,9 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 
 from sop_bot import FALLBACK, query_sop_bot
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+log = logging.getLogger("gateway")
+
 app = FastAPI(title="H-CORP Slack RAG Gateway")
 
 # Nincs alapértelmezett érték: titok nélkül a szolgáltatás nem indulhat el
@@ -17,6 +21,24 @@ SLACK_SIGNING_SECRET = os.environ["SLACK_SIGNING_SECRET"]
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 
 MENTION_RE = re.compile(r"<@[A-Z0-9]+>")
+
+# Slack event_id deduplikálás (memóriában, egy folyamaton belül).
+# Több worker / több példány esetén megosztott tár (pl. Redis) kell; a Dockerfile 1 workert indít.
+DEDUPE_TTL_SECONDS = 600
+_seen_events: dict[str, float] = {}
+
+
+def already_seen(event_id: str | None) -> bool:
+    """True, ha ezt az eseményt már feldolgoztuk. Közben a lejárt bejegyzéseket törli."""
+    now = time.time()
+    for key in [k for k, t in _seen_events.items() if now - t > DEDUPE_TTL_SECONDS]:
+        del _seen_events[key]
+    if not event_id:
+        return False
+    if event_id in _seen_events:
+        return True
+    _seen_events[event_id] = now
+    return False
 
 
 def verify_slack_signature(request: Request, body: bytes) -> bool:
@@ -37,16 +59,33 @@ def clean_mention(text: str) -> str:
 
 
 def answer_in_slack(channel: str, question: str) -> None:
+    started = time.time()
+    failed = False
     try:
         resp = query_sop_bot(question)
     except Exception:
+        log.exception("LLM hívás sikertelen")
         resp = FALLBACK
-    requests.post(
-        "https://slack.com/api/chat.postMessage",
-        json={"channel": channel, "text": resp},
-        headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
-        timeout=10,
+        failed = True
+    try:
+        requests.post(
+            "https://slack.com/api/chat.postMessage",
+            json={"channel": channel, "text": resp},
+            headers={"Authorization": f"Bearer {SLACK_BOT_TOKEN}"},
+            timeout=10,
+        ).raise_for_status()
+    except requests.RequestException:
+        log.exception("Slack üzenet küldése sikertelen")
+    # Szándékosan nem naplózzuk a kérdés/válasz szövegét (személyes adat lehet benne).
+    log.info(
+        "answered channel=%s q_len=%d a_len=%d llm_failed=%s fallback=%s ms=%d",
+        channel, len(question), len(resp), failed, resp.strip() == FALLBACK, int((time.time() - started) * 1000),
     )
+
+
+@app.get("/healthz")
+def healthz():
+    return {"status": "ok"}
 
 
 @app.post("/slack/events")
@@ -60,6 +99,8 @@ async def slack_events(request: Request, background: BackgroundTasks):
     data = await request.json()
     if "challenge" in data:
         return {"challenge": data["challenge"]}
+    if already_seen(data.get("event_id")):
+        return {"status": "ok"}
     event = data.get("event", {})
     if event.get("type") == "app_mention" and not event.get("bot_id"):
         question = clean_mention(event.get("text", ""))
